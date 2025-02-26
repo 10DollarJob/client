@@ -132,11 +132,32 @@ export default function ChatBubble() {
       content: input,
       timestamp: new Date(),
     }
-    await fetch(`${END_POINT}/chat`,{
+    // const globalMessageContent = messages.map(
+    //   (a) => a.content
+    // )
+    const data = {
+      "globalMessage": { "role": "assistant", "message": "Let me take a look at your code. Could you share the error message or the code?" },
+      "currentMessageContent": userMessage.content,
+    };
+    console.log({body: JSON.stringify(data)})
+    const endPoint = `http://localhost:8000/chat`
+    console.log({endPoint})
+    const response = await fetch(`${endPoint}`,{
       method: "POST",
+      headers: {
+        'Content-Type': 'application/json', // Specifies that the body content is in JSON format
+      },
+      body: JSON.stringify(data),
+      }
+    ) .then(response => response.json())
+    .then(data => {
+      console.log('Success:', data);
+    })
+    .catch((error) => {
+      console.error('Error:', error);
+    });
 
-    }
-    )
+    console.log({response})
     setMessages((prev) => [...prev, userMessage])
     setInput("")
 
@@ -153,9 +174,6 @@ export default function ChatBubble() {
       setMessages((prev) => [...prev, assistantMessage])
       setIsTyping(false)
     }, 1500)
-    await fetch(`${END_POINT}/chat`,
-        
-    )
   }
 
   const shouldShowAvatar = (message: Message, index: number) => {
