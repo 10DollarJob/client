@@ -21,6 +21,7 @@ type Message = {
   userId: string
   content: string
   timestamp: Date
+  role: "assitant" | "user"
 }
 const END_POINT = process.env.NEXT_BACKEND_API_ENDPOINT
 console.log({END_POINT})
@@ -60,30 +61,35 @@ const initialMessages: Message[] = [
     userId: "1",
     content: "Hey everyone! How's the new project coming along?",
     timestamp: new Date("2024-02-25T10:00:00"),
+    role: "assitant"
   },
   {
     id: "2",
     userId: "2",
     content: "Making good progress! Just finished the authentication system.",
     timestamp: new Date("2024-02-25T10:01:00"),
+    role: "assitant"
   },
   {
     id: "3",
     userId: "3",
     content: "Great work Bob! I've been working on the UI components.",
     timestamp: new Date("2024-02-25T10:02:00"),
+    role: "assitant"
   },
   {
     id: "4",
     userId: "4",
     content: "Nice! I could use some help with the database schema if anyone's free.",
     timestamp: new Date("2024-02-25T10:03:00"),
+    role: "assitant"
   },
   {
     id: "5",
     userId: "1",
     content: "I can help with that David. Let's pair program after the standup?",
     timestamp: new Date("2024-02-25T10:04:00"),
+    role: "assitant"
   },
 ]
 
@@ -131,12 +137,11 @@ export default function ChatBubble() {
       userId: currentUser.id,
       content: input,
       timestamp: new Date(),
+      role: "user"
     }
-    // const globalMessageContent = messages.map(
-    //   (a) => a.content
-    // )
+    const globalMessageContent = messages.map(({ role, content }) => ({ role, content }));
     const data = {
-      "globalMessage": { "role": "assistant", "message": "Let me take a look at your code. Could you share the error message or the code?" },
+      "globalMessage": globalMessageContent,
       "currentMessageContent": userMessage.content,
     };
     console.log({body: JSON.stringify(data)})
@@ -170,6 +175,7 @@ export default function ChatBubble() {
         userId,
         content,
         timestamp: new Date(),
+        role: "assitant"
       }
       setMessages((prev) => [...prev, assistantMessage])
       setIsTyping(false)
