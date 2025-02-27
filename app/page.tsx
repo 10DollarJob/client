@@ -29,6 +29,8 @@ export default function ChatBubble() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [chats, setChats] = useState<any[]>([]);
+  const [streamingText, setStreamingText] = useState("");
+  const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -47,30 +49,49 @@ export default function ChatBubble() {
     });
     setSocket(socket);
 
-    // // 2) Once connected, join the chat room
-    // const chatId = localStorage.getItem("10dj-chatId");
-    // if (chatId) {
-    //   console.log("joining chat", chatId);
-    //   socket.emit("join", chatId);
-    // }
-
     // 3) Listen for "message" events
     socket.on("message", (data) => {
       console.log({
         socketData: data,
       });
       // The `data` here will be whatever the server emitted:
-      // e.g. `fetchedChatAtThisPoint` in your backend code
       if (data && data.messages) {
         setMessages(data.messages);
+        setIsTyping(false);
+        setStreamingText("");
+        setCurrentStreamId(null);
       }
+    });
+
+    // Listen for streaming chunks
+    socket.on("stream-chunk", (data) => {
+      if (data.content && data.id) {
+        setIsTyping(true);
+        // Update streaming content
+        if (currentStreamId !== data.id) {
+          // This is a new streaming message
+          setCurrentStreamId(data.id);
+          setStreamingText(data.content);
+        } else {
+          // Continue existing stream
+          setStreamingText((prev) => prev + data.content);
+        }
+      }
+    });
+
+    // Listen for stream completion
+    socket.on("stream-complete", (data) => {
+      setIsTyping(false);
+      // Fully received message will come through the regular message channel
+      setStreamingText("");
+      setCurrentStreamId(null);
     });
 
     // 4) Cleanup when component unmounts
     return () => {
       socket?.disconnect();
     };
-  }, [router]);
+  }, [currentStreamId]);
 
   // Check user on mount
   useEffect(() => {
@@ -94,7 +115,7 @@ export default function ChatBubble() {
   };
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, streamingText]);
 
   // Fetch current chat
   const handleGetChat = async () => {
@@ -171,6 +192,17 @@ export default function ChatBubble() {
         ? null
         : localStorage.getItem("10dj-taskId");
 
+    // Add optimistic update for the user message
+    const tempUserMessage = {
+      id: `temp-${Date.now()}`,
+      role: "user",
+      content: input,
+    };
+    setMessages((prev) => [...prev, tempUserMessage]);
+
+    // Set typing indicator as soon as the user sends a message
+    setIsTyping(true);
+
     const dataToSend = {
       globalMessage: globalMessageContent,
       currentMessageContent: input,
@@ -199,10 +231,11 @@ export default function ChatBubble() {
         localStorage.setItem("10dj-taskId", data.taskId);
       }
 
-      // Re-fetch
-      handleGetChat();
+      // We don't immediately re-fetch since we'll get streamed updates
+      // The final message will come through the socket
     } catch (error) {
       console.error("Error sending message:", error);
+      setIsTyping(false);
     }
 
     setInput("");
@@ -320,7 +353,7 @@ export default function ChatBubble() {
               ref={containerRef}
               className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth"
             >
-              {messages.length === 0 && (
+              {messages.length === 0 && !isTyping && (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
                   <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
                   <h3 className="text-lg font-medium">No messages yet</h3>
@@ -388,8 +421,9 @@ export default function ChatBubble() {
                   </div>
                 );
               })}
-              {/* Typing indicator (if needed) */}
-              {isTyping && (
+
+              {/* Streaming message (only show if there's streaming content) */}
+              {isTyping && streamingText && (
                 <div className="flex justify-start">
                   <div className="flex max-w-[80%] items-start gap-3">
                     <Avatar className="w-8 h-8">
@@ -397,16 +431,46 @@ export default function ChatBubble() {
                         A
                       </AvatarFallback>
                     </Avatar>
-                    <div className="bg-secondary text-secondary-foreground rounded-lg px-4 py-2">
-                      <div className="flex space-x-2">
-                        <div className="w-2 h-2 rounded-full bg-current animate-bounce" />
-                        <div className="w-2 h-2 rounded-full bg-current animate-bounce [animation-delay:0.2s]" />
-                        <div className="w-2 h-2 rounded-full bg-current animate-bounce [animation-delay:0.4s]" />
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground text-left">
+                        Assistant
+                      </span>
+                      <div className="bg-secondary text-secondary-foreground rounded-lg px-4 py-2">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {streamingText}
+                        </ReactMarkdown>
+                        <span className="inline-block w-1 h-4 ml-1 bg-current animate-blink"></span>
                       </div>
                     </div>
                   </div>
                 </div>
               )}
+
+              {/* Typing indicator (only show when there's no streaming content) */}
+              {isTyping && !streamingText && (
+                <div className="flex justify-start">
+                  <div className="flex max-w-[80%] items-start gap-3">
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback className="bg-secondary text-secondary-foreground">
+                        A
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-muted-foreground text-left">
+                        Assistant
+                      </span>
+                      <div className="bg-secondary text-secondary-foreground rounded-lg px-4 py-2">
+                        <div className="flex space-x-2">
+                          <div className="w-2 h-2 rounded-full bg-current animate-bounce" />
+                          <div className="w-2 h-2 rounded-full bg-current animate-bounce [animation-delay:0.2s]" />
+                          <div className="w-2 h-2 rounded-full bg-current animate-bounce [animation-delay:0.4s]" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div ref={messagesEndRef} />
             </CardContent>
           </Card>
@@ -420,6 +484,7 @@ export default function ChatBubble() {
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type a message..."
               className="flex-1"
+              disabled={isTyping}
             />
             <Button
               type="submit"
