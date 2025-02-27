@@ -18,6 +18,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+// Markdown imports
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
 export default function ChatBubble() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
@@ -151,9 +155,6 @@ export default function ChatBubble() {
       });
 
       const data = await response.json();
-      console.log({
-        success: data,
-      });
       if (data.chatId) {
         localStorage.setItem("10dj-chatId", data.chatId);
       }
@@ -340,7 +341,10 @@ export default function ChatBubble() {
                               : "bg-secondary text-secondary-foreground"
                           }`}
                         >
-                          {message.content}
+                          {/* Render Markdown */}
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {message.content}
+                          </ReactMarkdown>
                         </div>
                       </div>
                     </div>

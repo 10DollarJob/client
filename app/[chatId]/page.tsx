@@ -18,6 +18,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+// Markdown imports
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
 export default function ChatIdPage() {
   const router = useRouter();
   const params = useParams();
@@ -318,7 +322,10 @@ export default function ChatIdPage() {
                               : "bg-secondary text-secondary-foreground"
                           }`}
                         >
-                          {message.content}
+                          {/* Render Markdown */}
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {message.content}
+                          </ReactMarkdown>
                         </div>
                       </div>
                     </div>
