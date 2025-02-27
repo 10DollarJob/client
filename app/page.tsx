@@ -22,6 +22,8 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import io, { Socket } from "socket.io-client";
+
 export default function ChatBubble() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
@@ -34,6 +36,41 @@ export default function ChatBubble() {
   const { user } = useUser();
   const { session } = useSession();
   const router = useRouter();
+
+  const [socket, setSocket] = useState<Socket | null>(null);
+
+  useEffect(() => {
+    // 1) Connect to your Socket.IO server
+    // (Make sure the URL/port matches your server setup)
+    const socket = io("http://localhost:8005", {
+      transports: ["websocket"],
+    });
+    setSocket(socket);
+
+    // // 2) Once connected, join the chat room
+    // const chatId = localStorage.getItem("10dj-chatId");
+    // if (chatId) {
+    //   console.log("joining chat", chatId);
+    //   socket.emit("join", chatId);
+    // }
+
+    // 3) Listen for "message" events
+    socket.on("message", (data) => {
+      console.log({
+        socketData: data,
+      });
+      // The `data` here will be whatever the server emitted:
+      // e.g. `fetchedChatAtThisPoint` in your backend code
+      if (data && data.messages) {
+        setMessages(data.messages);
+      }
+    });
+
+    // 4) Cleanup when component unmounts
+    return () => {
+      socket?.disconnect();
+    };
+  }, [router]);
 
   // Check user on mount
   useEffect(() => {
