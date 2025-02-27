@@ -2,14 +2,14 @@
 
 import type * as React from "react";
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useUser, useSession } from "@clerk/nextjs";
 import { UserButton } from "@clerk/nextjs";
 import { Send, Plus, MessageSquare } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Tooltip,
@@ -18,25 +18,28 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export default function ChatBubble() {
+export default function ChatIdPage() {
+  const router = useRouter();
+  const params = useParams();
+  const chatIdFromRoute = params.chatId;
+
+  const { user } = useUser();
+  const { session } = useSession();
+
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [chats, setChats] = useState<any[]>([]);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { user } = useUser();
-  const { session } = useSession();
-  const router = useRouter();
-
-  // Check user on mount
+  // Check user and store token
   useEffect(() => {
-    if (user) {
-      handleGetToken();
-    } else {
+    if (!user) {
       router.push("/sign-in");
+    } else {
+      handleGetToken();
     }
   }, [user, router]);
 
@@ -45,51 +48,11 @@ export default function ChatBubble() {
     localStorage.setItem("10dj-authToken", token || "");
   };
 
-  // Scroll helper
-  const scrollToBottom = () => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  };
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Fetch current chat
-  const handleGetChat = async () => {
-    const chatId = localStorage.getItem("10dj-chatId");
-    if (!chatId || chatId === "undefined" || chatId === "null") {
-      setMessages([]);
-      return;
-    }
-
-    const endPoint = `http://localhost:8005/api/v1/chats/${chatId}`;
-    const authToken = localStorage.getItem("10dj-authToken");
-    try {
-      const response = await fetch(endPoint, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      const data = await response.json();
-      setMessages(data.messages);
-    } catch (error) {
-      console.error("Error fetching chat:", error);
-    }
-  };
-
-  useEffect(() => {
-    handleGetChat();
-  }, []);
-
   // Fetch all chats (for sidebar)
   const handleGetChats = async () => {
-    const endPoint = `http://localhost:8005/api/v1/chats`;
-    const authToken = localStorage.getItem("10dj-authToken");
     try {
-      const response = await fetch(endPoint, {
+      const authToken = localStorage.getItem("10dj-authToken");
+      const response = await fetch(`http://localhost:8005/api/v1/chats`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -107,8 +70,48 @@ export default function ChatBubble() {
     handleGetChats();
   }, []);
 
+  // Fetch messages for the current chat
+  const handleGetChat = async (id: string) => {
+    if (!id || id === "undefined" || id === "null") {
+      setMessages([]);
+      return;
+    }
+
+    try {
+      const authToken = localStorage.getItem("10dj-authToken");
+      const response = await fetch(`http://localhost:8005/api/v1/chats/${id}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      const data = await response.json();
+      setMessages(data.messages);
+    } catch (error) {
+      console.error("Error fetching chat:", error);
+      setMessages([]);
+    }
+  };
+
+  // Update localStorage and fetch when chatId changes
+  useEffect(() => {
+    localStorage.setItem("10dj-chatId", chatIdFromRoute as string);
+    handleGetChat(chatIdFromRoute as string);
+  }, [chatIdFromRoute]);
+
+  // Scroll to bottom
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
   // Send a message
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!input.trim()) return;
 
@@ -117,12 +120,6 @@ export default function ChatBubble() {
       content,
     }));
 
-    const chatId =
-      localStorage.getItem("10dj-chatId") === "null" ||
-      localStorage.getItem("10dj-chatId") === "undefined"
-        ? null
-        : localStorage.getItem("10dj-chatId");
-
     const taskId =
       localStorage.getItem("10dj-taskId") === "null" ||
       localStorage.getItem("10dj-taskId") === "undefined" ||
@@ -130,18 +127,18 @@ export default function ChatBubble() {
         ? null
         : localStorage.getItem("10dj-taskId");
 
+    const chatIdStored = localStorage.getItem("10dj-chatId") || chatIdFromRoute;
+
     const dataToSend = {
       globalMessage: globalMessageContent,
       currentMessageContent: input,
       taskId: taskId,
-      chatId: chatId,
+      chatId: chatIdStored,
     };
 
-    const endPoint = `http://localhost:8005/chat`;
-    const authToken = localStorage.getItem("10dj-authToken");
-
     try {
-      const response = await fetch(endPoint, {
+      const authToken = localStorage.getItem("10dj-authToken");
+      const response = await fetch(`http://localhost:8005/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -149,11 +146,8 @@ export default function ChatBubble() {
         },
         body: JSON.stringify(dataToSend),
       });
-
       const data = await response.json();
-      console.log({
-        success: data,
-      });
+
       if (data.chatId) {
         localStorage.setItem("10dj-chatId", data.chatId);
       }
@@ -161,8 +155,8 @@ export default function ChatBubble() {
         localStorage.setItem("10dj-taskId", data.taskId);
       }
 
-      // Re-fetch
-      handleGetChat();
+      // Re-fetch with updated chatId
+      handleGetChat(data.chatId || chatIdFromRoute);
     } catch (error) {
       console.error("Error sending message:", error);
     }
@@ -170,17 +164,11 @@ export default function ChatBubble() {
     setInput("");
   };
 
-  const shouldShowAvatar = (message: any, index: number) => {
-    if (index === 0) return true;
-    const prevMessage = messages[index - 1];
-    return prevMessage.role !== message.role;
-  };
-
-  // Clear chat
-  const handleClearChat = () => {
-    localStorage.removeItem("10dj-chatId");
-    localStorage.removeItem("10dj-taskId");
-    handleGetChat();
+  // Sidebar chat click
+  const handleChatClick = (chat: any) => {
+    localStorage.setItem("10dj-chatId", chat.id);
+    localStorage.setItem("10dj-taskId", chat.task_id);
+    router.push(`/${chat.id}`);
   };
 
   // New chat
@@ -191,11 +179,11 @@ export default function ChatBubble() {
     router.push("/");
   };
 
-  // Sidebar chat click
-  const handleChatClick = (chat: any) => {
-    localStorage.setItem("10dj-chatId", chat.id);
-    localStorage.setItem("10dj-taskId", chat.task_id);
-    router.push(`/${chat.id}`);
+  // Decide if avatar should be shown
+  const shouldShowAvatar = (message: any, index: number) => {
+    if (index === 0) return true;
+    const prevMessage = messages[index - 1];
+    return prevMessage.role !== message.role;
   };
 
   return (
@@ -260,22 +248,12 @@ export default function ChatBubble() {
         {/* Header */}
         <header className="fixed top-0 left-64 right-0 z-10 border-b border-border/40 bg-background p-4 flex items-center justify-between">
           <h1 className="text-lg font-semibold">
-            {chats.find((c) => c.id === localStorage.getItem("10dj-chatId"))
-              ?.taskTitle || "New Chat"}
+            {chats.find((c) => c.id === chatIdFromRoute)?.taskTitle ||
+              "New Chat"}
           </h1>
-          <div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClearChat}
-              className="text-xs"
-            >
-              Clear Chat
-            </Button>
-          </div>
         </header>
 
-        {/* Chat content area */}
+        {/* Chat area */}
         <div className="flex-1 overflow-hidden pt-16 p-4">
           <Card className="h-full flex flex-col bg-card">
             <CardContent
@@ -347,6 +325,7 @@ export default function ChatBubble() {
                   </div>
                 );
               })}
+
               {/* Typing indicator (if needed) */}
               {isTyping && (
                 <div className="flex justify-start">
@@ -368,27 +347,30 @@ export default function ChatBubble() {
               )}
               <div ref={messagesEndRef} />
             </CardContent>
-          </Card>
-        </div>
 
-        {/* Input area */}
-        <div className="border-t bg-background p-4">
-          <form onSubmit={handleSubmit} className="flex w-full space-x-2">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type a message..."
-              className="flex-1"
-            />
-            <Button
-              type="submit"
-              size="icon"
-              disabled={isTyping || !input.trim()}
-            >
-              <Send className="h-4 w-4" />
-              <span className="sr-only">Send message</span>
-            </Button>
-          </form>
+            {/* Message Input */}
+            <CardFooter className="border-t p-4">
+              <form
+                onSubmit={handleSendMessage}
+                className="flex w-full space-x-2"
+              >
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Type a message..."
+                  className="flex-1"
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={isTyping || !input.trim()}
+                >
+                  <Send className="h-4 w-4" />
+                  <span className="sr-only">Send message</span>
+                </Button>
+              </form>
+            </CardFooter>
+          </Card>
         </div>
       </div>
     </div>
