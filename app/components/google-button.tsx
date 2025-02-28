@@ -12,7 +12,9 @@ export function LoginButton() {
   useEffect(() => {
     if (session) {
       const token = (session as any).id_token;
-      if (isReady && isLoggedIn) {
+      console.log(isReady, isLoggedIn, "isReady and isLoggedIn");
+      localStorage.setItem("10dj-authToken", token || "");
+      if (isReady) {
         authenticate(token, (result, error) => {
           if (error) {
             console.error("Error during auth", error);

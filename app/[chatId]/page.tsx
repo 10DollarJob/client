@@ -3,7 +3,6 @@
 import type * as React from "react";
 import { useState, useRef, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useUser, useSession } from "@clerk/nextjs";
 import { UserButton } from "@clerk/nextjs";
 import { Send, Plus, MessageSquare } from "lucide-react";
 
@@ -27,9 +26,6 @@ export default function ChatIdPage() {
   const params = useParams();
   const chatIdFromRoute = params.chatId;
 
-  const { user } = useUser();
-  const { session } = useSession();
-
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -37,20 +33,6 @@ export default function ChatIdPage() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Check user and store token
-  useEffect(() => {
-    if (!user) {
-      router.push("/sign-in");
-    } else {
-      handleGetToken();
-    }
-  }, [user, router]);
-
-  const handleGetToken = async () => {
-    const token = await session?.getToken();
-    localStorage.setItem("10dj-authToken", token || "");
-  };
 
   // Fetch all chats (for sidebar)
   const handleGetChats = async () => {
@@ -91,6 +73,7 @@ export default function ChatIdPage() {
         },
       });
       const data = await response.json();
+      console.log("data from get chat", data);
       setMessages(data.messages);
     } catch (error) {
       console.error("Error fetching chat:", error);
@@ -236,7 +219,7 @@ export default function ChatIdPage() {
           </TooltipProvider>
         </div>
 
-        {/* User Profile */}
+        {/* User Profile
         <div className="mt-4 pt-4 border-t border-white/10">
           <div className="flex items-center gap-3 p-2">
             <UserButton />
@@ -244,7 +227,7 @@ export default function ChatIdPage() {
               {user?.fullName || user?.username || "User"}
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Main Section (right) */}

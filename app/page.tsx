@@ -152,6 +152,7 @@ export default function ChatBubble() {
     const endPoint = `http://localhost:8005/api/v1/chats`;
     const authToken = localStorage.getItem("10dj-authToken");
     try {
+      console.log("getting all chats");
       const response = await fetch(endPoint, {
         method: "GET",
         headers: {
@@ -160,6 +161,7 @@ export default function ChatBubble() {
         },
       });
       const data = await response.json();
+      console.log("data from all chats", data);
       setChats(data);
     } catch (error) {
       console.error("Error fetching all chats:", error);
@@ -354,7 +356,7 @@ export default function ChatBubble() {
               ref={containerRef}
               className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth"
             >
-              {messages.length === 0 && !isTyping && (
+              {messages && messages.length === 0 && !isTyping && (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
                   <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
                   <h3 className="text-lg font-medium">No messages yet</h3>
@@ -364,64 +366,66 @@ export default function ChatBubble() {
                 </div>
               )}
 
-              {messages.map((message, index) => {
-                const isCurrentUser = message.role === "user";
-                const showAvatar = shouldShowAvatar(message, index);
-                return (
-                  <div
-                    key={message.id ?? index}
-                    className={`flex ${
-                      isCurrentUser ? "justify-end" : "justify-start"
-                    }`}
-                  >
+              {messages &&
+                messages.length === 0 &&
+                messages.map((message, index) => {
+                  const isCurrentUser = message.role === "user";
+                  const showAvatar = shouldShowAvatar(message, index);
+                  return (
                     <div
-                      className={`flex max-w-[80%] ${
-                        isCurrentUser
-                          ? "flex-row-reverse items-end"
-                          : "flex-row items-start"
-                      } gap-3`}
+                      key={message.id ?? index}
+                      className={`flex ${
+                        isCurrentUser ? "justify-end" : "justify-start"
+                      }`}
                     >
-                      {showAvatar && (
-                        <Avatar className="w-8 h-8">
-                          <AvatarFallback
-                            className={
+                      <div
+                        className={`flex max-w-[80%] ${
+                          isCurrentUser
+                            ? "flex-row-reverse items-end"
+                            : "flex-row items-start"
+                        } gap-3`}
+                      >
+                        {showAvatar && (
+                          <Avatar className="w-8 h-8">
+                            <AvatarFallback
+                              className={
+                                isCurrentUser
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-secondary text-secondary-foreground"
+                              }
+                            >
+                              {isCurrentUser ? "U" : "A"}
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+
+                        <div className="flex flex-col gap-1">
+                          {showAvatar && (
+                            <span
+                              className={`text-xs text-muted-foreground ${
+                                isCurrentUser ? "text-right" : "text-left"
+                              }`}
+                            >
+                              {isCurrentUser ? "You" : "Assistant"}
+                            </span>
+                          )}
+                          <div
+                            className={`rounded-lg px-4 py-2 ${
                               isCurrentUser
                                 ? "bg-primary text-primary-foreground"
                                 : "bg-secondary text-secondary-foreground"
-                            }
-                          >
-                            {isCurrentUser ? "U" : "A"}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-
-                      <div className="flex flex-col gap-1">
-                        {showAvatar && (
-                          <span
-                            className={`text-xs text-muted-foreground ${
-                              isCurrentUser ? "text-right" : "text-left"
                             }`}
                           >
-                            {isCurrentUser ? "You" : "Assistant"}
-                          </span>
-                        )}
-                        <div
-                          className={`rounded-lg px-4 py-2 ${
-                            isCurrentUser
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-secondary text-secondary-foreground"
-                          }`}
-                        >
-                          {/* Render Markdown */}
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {message.content}
-                          </ReactMarkdown>
+                            {/* Render Markdown */}
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {message.content}
+                            </ReactMarkdown>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
 
               {/* Streaming message (only show if there's streaming content) */}
               {isTyping && streamingText && (
