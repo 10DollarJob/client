@@ -4,7 +4,7 @@ import type * as React from "react";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-import { Send, Plus, MessageSquare } from "lucide-react";
+import { Send, Plus, MessageSquare, Paperclip } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+import { useOkto } from "@okto_web3/react-sdk";
+
 // Markdown imports
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -25,7 +27,7 @@ import io, { Socket } from "socket.io-client";
 
 import { LoginButton } from "@/app/components/google-button";
 import { useSession } from "next-auth/react";
-import { useOkto } from "@okto_web3/react-sdk";
+
 export default function ChatBubble() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
@@ -36,29 +38,22 @@ export default function ChatBubble() {
 
   const session = useSession();
 
-  const { isLoggedIn } = useOkto();
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-
   const router = useRouter();
 
   const [socket, setSocket] = useState<Socket | null>(null);
 
+  // Connect to Socket.IO
   useEffect(() => {
-    // 1) Connect to your Socket.IO server
-    // (Make sure the URL/port matches your server setup)
-    const socket = io("http://localhost:8005", {
+    const socketInstance = io("http://localhost:8005", {
       transports: ["websocket"],
     });
-    setSocket(socket);
+    setSocket(socketInstance);
 
-    // 3) Listen for "message" events
-    socket.on("message", (data) => {
-      console.log({
-        socketData: data,
-      });
-      // The `data` here will be whatever the server emitted:
+    // Listen for new messages (the final, full message after streaming)
+    socketInstance.on("message", (data) => {
+      console.log("socket data from 'message':", data);
       if (data && data.messages) {
         setMessages(data.messages);
         setIsTyping(false);
@@ -67,37 +62,37 @@ export default function ChatBubble() {
       }
     });
 
-    // Listen for streaming chunks
-    socket.on("stream-chunk", (data) => {
+    // Listen for streaming text chunks (assistant role)
+    socketInstance.on("stream-chunk", (data) => {
       if (data.content && data.id) {
         setIsTyping(true);
-        // Update streaming content
         if (currentStreamId !== data.id) {
-          // This is a new streaming message
+          // New streamed message
           setCurrentStreamId(data.id);
           setStreamingText(data.content);
         } else {
-          // Continue existing stream
+          // Continue current stream
           setStreamingText((prev) => prev + data.content);
         }
       }
     });
 
-    // Listen for stream completion
-    socket.on("stream-complete", (data) => {
+    // Listen for the "stream-complete" event (end of streaming)
+    socketInstance.on("stream-complete", (data) => {
       setIsTyping(false);
-      // Fully received message will come through the regular message channel
       setStreamingText("");
       setCurrentStreamId(null);
+      // The final content + media will appear in the "message" event
+      // so we rely on that to show the correct final data.
     });
 
-    // 4) Cleanup when component unmounts
     return () => {
-      socket?.disconnect();
+      socketInstance.disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStreamId]);
 
-  // Scroll helper
+  // Auto-scroll to bottom on new messages or streaming
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -107,7 +102,7 @@ export default function ChatBubble() {
     scrollToBottom();
   }, [messages, streamingText]);
 
-  // Fetch current chat
+  // Fetch current chat messages
   const handleGetChat = async () => {
     const chatId = localStorage.getItem("10dj-chatId");
     if (!chatId || chatId === "undefined" || chatId === "null") {
@@ -136,12 +131,11 @@ export default function ChatBubble() {
     handleGetChat();
   }, []);
 
-  // Fetch all chats (for sidebar)
+  // Fetch all chats (for the sidebar)
   const handleGetChats = async () => {
     const endPoint = `http://localhost:8005/api/v1/chats`;
     const authToken = localStorage.getItem("10dj-authToken");
     try {
-      console.log("getting all chats");
       const response = await fetch(endPoint, {
         method: "GET",
         headers: {
@@ -161,7 +155,7 @@ export default function ChatBubble() {
     handleGetChats();
   }, []);
 
-  // Send a message
+  // Send a message (user role)
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -184,15 +178,13 @@ export default function ChatBubble() {
         ? null
         : localStorage.getItem("10dj-taskId");
 
-    // Add optimistic update for the user message
+    // Optimistic update in the UI
     const tempUserMessage = {
       id: `temp-${Date.now()}`,
       role: "user",
       content: input,
     };
     setMessages((prev) => [...prev, tempUserMessage]);
-
-    // Set typing indicator as soon as the user sends a message
     setIsTyping(true);
 
     const dataToSend = {
@@ -222,9 +214,7 @@ export default function ChatBubble() {
       if (data.taskId) {
         localStorage.setItem("10dj-taskId", data.taskId);
       }
-
-      // We don't immediately re-fetch since we'll get streamed updates
-      // The final message will come through the socket
+      // The final assistant message arrives via streaming + socket “message” event
     } catch (error) {
       console.error("Error sending message:", error);
       setIsTyping(false);
@@ -254,7 +244,7 @@ export default function ChatBubble() {
     router.push("/");
   };
 
-  // Sidebar chat click
+  // Click on a sidebar chat
   const handleChatClick = (chat: any) => {
     localStorage.setItem("10dj-chatId", chat.id);
     localStorage.setItem("10dj-taskId", chat.task_id);
@@ -308,7 +298,7 @@ export default function ChatBubble() {
           </TooltipProvider>
         </div>
 
-        {/* User Profile */}
+        {/* User Profile (Google Login) */}
         <div className="mt-4 pt-4 border-t border-white/10">
           <div className="flex items-center gap-3 p-2">
             <LoginButton />
@@ -345,6 +335,7 @@ export default function ChatBubble() {
               ref={containerRef}
               className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth"
             >
+              {/* If no messages and not typing, show an empty state */}
               {messages && messages.length === 0 && !isTyping && (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
                   <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
@@ -355,11 +346,13 @@ export default function ChatBubble() {
                 </div>
               )}
 
+              {/* Render existing messages */}
               {messages &&
-                messages.length === 0 &&
+                messages.length > 0 &&
                 messages.map((message, index) => {
                   const isCurrentUser = message.role === "user";
                   const showAvatar = shouldShowAvatar(message, index);
+
                   return (
                     <div
                       key={message.id ?? index}
@@ -405,10 +398,25 @@ export default function ChatBubble() {
                                 : "bg-secondary text-secondary-foreground"
                             }`}
                           >
-                            {/* Render Markdown */}
+                            {/* Render Markdown for the message text */}
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
                               {message.content}
                             </ReactMarkdown>
+
+                            {/* If there's media, show a clickable "chip" to open in new tab */}
+                            {message.media_url && (
+                              <div className="mt-2">
+                                <a
+                                  href={message.media_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center px-3 py-1 text-sm rounded-full bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+                                >
+                                  <Paperclip className="mr-2 w-4 h-4" />
+                                  View Attachment
+                                </a>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -416,7 +424,7 @@ export default function ChatBubble() {
                   );
                 })}
 
-              {/* Streaming message (only show if there's streaming content) */}
+              {/* Streaming message (only if there's streaming content) */}
               {isTyping && streamingText && (
                 <div className="flex justify-start">
                   <div className="flex max-w-[80%] items-start gap-3">
@@ -440,7 +448,7 @@ export default function ChatBubble() {
                 </div>
               )}
 
-              {/* Typing indicator (only show when there's no streaming content) */}
+              {/* Typing indicator (if streaming hasn't started or ended) */}
               {isTyping && !streamingText && (
                 <div className="flex justify-start">
                   <div className="flex max-w-[80%] items-start gap-3">
