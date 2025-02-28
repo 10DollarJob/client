@@ -24,6 +24,8 @@ import remarkGfm from "remark-gfm";
 
 import io, { Socket } from "socket.io-client";
 
+import { LoginButton } from "@/app/components/google-button";
+
 export default function ChatBubble() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
@@ -318,10 +320,7 @@ export default function ChatBubble() {
         {/* User Profile */}
         <div className="mt-4 pt-4 border-t border-white/10">
           <div className="flex items-center gap-3 p-2">
-            <UserButton />
-            <div className="text-sm">
-              {user?.fullName || user?.username || "User"}
-            </div>
+            <LoginButton />
           </div>
         </div>
       </div>
