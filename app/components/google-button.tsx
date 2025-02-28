@@ -9,10 +9,39 @@ export function LoginButton() {
 
   useEffect(() => {
     if (session) {
+      const token = (session as any).id_token;
+      console.log("token from google button", token);
+      localStorage.setItem("10dj-authToken", token || "");
       console.log("session from google button", session);
       setSessionState(session);
+      handleFetchOrCreateUser(session);
     }
   }, [session]);
+
+  const handleFetchOrCreateUser = async (session: any) => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/fetch-or-create-user`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.id_token}`,
+          },
+          body: JSON.stringify({
+            email: session.user.email,
+            name: session.user.name,
+            image: session.user.image,
+            type: "user",
+          }),
+        }
+      );
+      const data = await response.json();
+      console.log(data, "data from fetch-or-create-user");
+    } catch (error) {
+      console.error(error, "error from fetch-or-create-user");
+    }
+  };
 
   useEffect(() => {
     if (sessionState) {
@@ -47,7 +76,7 @@ export function LoginButton() {
 
   // Render user info and sign out button when signed in
   return (
-    <div className="flex items-center space-x-4">
+    <div className="flex items-center space-x-4" onClick={handleAuth}>
       <img
         src={sessionState.user?.image || ""}
         alt={sessionState.user?.name || ""}

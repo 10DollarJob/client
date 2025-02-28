@@ -3,8 +3,7 @@
 import type * as React from "react";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useUser, useSession } from "@clerk/nextjs";
-import { UserButton } from "@clerk/nextjs";
+
 import { Send, Plus, MessageSquare } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,7 +24,7 @@ import remarkGfm from "remark-gfm";
 import io, { Socket } from "socket.io-client";
 
 import { LoginButton } from "@/app/components/google-button";
-
+import { useSession } from "next-auth/react";
 export default function ChatBubble() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
@@ -34,11 +33,11 @@ export default function ChatBubble() {
   const [streamingText, setStreamingText] = useState("");
   const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
 
+  const session = useSession();
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { user } = useUser();
-  const { session } = useSession();
   const router = useRouter();
 
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -94,20 +93,6 @@ export default function ChatBubble() {
       socket?.disconnect();
     };
   }, [currentStreamId]);
-
-  // Check user on mount
-  useEffect(() => {
-    if (user) {
-      handleGetToken();
-    } else {
-      router.push("/sign-in");
-    }
-  }, [user, router]);
-
-  const handleGetToken = async () => {
-    const token = await session?.getToken();
-    localStorage.setItem("10dj-authToken", token || "");
-  };
 
   // Scroll helper
   const scrollToBottom = () => {
@@ -296,24 +281,25 @@ export default function ChatBubble() {
         <div className="text-xs text-white/50 mb-2">Recent Chats</div>
         <div className="flex-1 overflow-y-auto space-y-1">
           <TooltipProvider>
-            {chats.map((chat) => (
-              <Tooltip key={chat.id}>
-                <TooltipTrigger asChild>
-                  <div
-                    onClick={() => handleChatClick(chat)}
-                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/10"
-                  >
-                    <MessageSquare className="h-4 w-4 shrink-0" />
-                    <span className="truncate text-sm">
-                      {chat.taskTitle || "Untitled Chat"}
-                    </span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  {chat.taskTitle || "Untitled Chat"}
-                </TooltipContent>
-              </Tooltip>
-            ))}
+            {chats.length > 0 &&
+              chats.map((chat) => (
+                <Tooltip key={chat.id}>
+                  <TooltipTrigger asChild>
+                    <div
+                      onClick={() => handleChatClick(chat)}
+                      className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/10"
+                    >
+                      <MessageSquare className="h-4 w-4 shrink-0" />
+                      <span className="truncate text-sm">
+                        {chat.taskTitle || "Untitled Chat"}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    {chat.taskTitle || "Untitled Chat"}
+                  </TooltipContent>
+                </Tooltip>
+              ))}
           </TooltipProvider>
         </div>
 
@@ -330,8 +316,10 @@ export default function ChatBubble() {
         {/* Header */}
         <header className="fixed top-0 left-64 right-0 z-10 border-b border-border/40 bg-background p-4 flex items-center justify-between">
           <h1 className="text-lg font-semibold">
-            {chats.find((c) => c.id === localStorage.getItem("10dj-chatId"))
-              ?.taskTitle || "New Chat"}
+            {chats.length > 0
+              ? chats.find((c) => c.id === localStorage.getItem("10dj-chatId"))
+                  ?.taskTitle || "New Chat"
+              : "New Chat"}
           </h1>
           <div>
             <Button
@@ -488,7 +476,7 @@ export default function ChatBubble() {
             <Button
               type="submit"
               size="icon"
-              disabled={isTyping || !input.trim()}
+              disabled={isTyping || !input.trim() || !session}
             >
               <Send className="h-4 w-4" />
               <span className="sr-only">Send message</span>
