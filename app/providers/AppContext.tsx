@@ -35,7 +35,6 @@ export const AppContextProvider = ({
   });
 
   const [buildType, setBuildType] = useState(() => {
-    // Try to load from localStorage during initialization
     if (typeof window !== "undefined") {
       return localStorage.getItem("oktoBuildType") || BuildType.SANDBOX;
     }

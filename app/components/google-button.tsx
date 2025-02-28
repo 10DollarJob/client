@@ -1,22 +1,33 @@
 "use client";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
-
+import { useOkto } from "okto-sdk-react";
 export function LoginButton() {
   const { data: session } = useSession();
 
   const [sessionState, setSessionState] = useState<any>(null);
 
+  const { authenticate, isReady, isLoggedIn } = useOkto();
+
   useEffect(() => {
     if (session) {
       const token = (session as any).id_token;
-      console.log("token from google button", token);
-      localStorage.setItem("10dj-authToken", token || "");
-      console.log("session from google button", session);
-      setSessionState(session);
-      handleFetchOrCreateUser(session);
+      if (isReady && isLoggedIn) {
+        authenticate(token, (result, error) => {
+          if (error) {
+            console.error("Error during auth", error);
+          } else {
+            console.log("result from google button", result);
+            console.log("token from google button", token);
+            localStorage.setItem("10dj-authToken", token || "");
+            console.log("session from google button", session);
+            setSessionState(session);
+            handleFetchOrCreateUser(session);
+          }
+        });
+      }
     }
-  }, [session]);
+  }, [session, isReady, isLoggedIn]);
 
   const handleFetchOrCreateUser = async (session: any) => {
     try {

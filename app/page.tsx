@@ -17,6 +17,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+import { useOkto } from "okto-sdk-react";
+
 // Markdown imports
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -34,6 +36,8 @@ export default function ChatBubble() {
   const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
 
   const session = useSession();
+
+  const { createWallet, isReady, isLoggedIn } = useOkto();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -103,6 +107,16 @@ export default function ChatBubble() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, streamingText]);
+
+  useEffect(() => {
+    const handleCreateWallet = async () => {
+      const wallet = await createWallet();
+      console.log(wallet, "wallet from okto");
+    };
+    if (isReady && isLoggedIn) {
+      handleCreateWallet();
+    }
+  }, [isReady, isLoggedIn]);
 
   // Fetch current chat
   const handleGetChat = async () => {
