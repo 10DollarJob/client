@@ -17,8 +17,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-import { useOkto } from "okto-sdk-react";
-
 // Markdown imports
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -27,6 +25,7 @@ import io, { Socket } from "socket.io-client";
 
 import { LoginButton } from "@/app/components/google-button";
 import { useSession } from "next-auth/react";
+import { useOkto } from "@okto_web3/react-sdk";
 export default function ChatBubble() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
@@ -37,7 +36,7 @@ export default function ChatBubble() {
 
   const session = useSession();
 
-  const { createWallet, isReady, isLoggedIn } = useOkto();
+  const { isLoggedIn } = useOkto();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -107,16 +106,6 @@ export default function ChatBubble() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, streamingText]);
-
-  useEffect(() => {
-    const handleCreateWallet = async () => {
-      const wallet = await createWallet();
-      console.log(wallet, "wallet from okto");
-    };
-    if (isReady && isLoggedIn) {
-      handleCreateWallet();
-    }
-  }, [isReady, isLoggedIn]);
 
   // Fetch current chat
   const handleGetChat = async () => {

@@ -1,35 +1,65 @@
 "use client";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { useEffect, useState } from "react";
-import { useOkto } from "okto-sdk-react";
+import { useEffect, useState, useMemo } from "react";
+import { useOkto } from "@okto_web3/react-sdk";
 export function LoginButton() {
   const { data: session } = useSession();
-
   const [sessionState, setSessionState] = useState<any>(null);
+  //@ts-ignore
+  const idToken = useMemo(() => {
+    console.log("session", session);
+    if (session) {
+      setSessionState(session);
+      return (session as any).id_token;
+    }
+    return null;
+  }, [session]);
 
-  const { authenticate, isReady, isLoggedIn } = useOkto();
+  const { loginUsingOAuth, sessionClear } = useOkto();
+
+  const [userSWA, setUserSWA] = useState<any>(null);
+
+  async function handleAuthenticate(): Promise<any> {
+    if (!idToken) {
+      return { result: false, error: "No google login" };
+    }
+    try {
+      const user = await loginUsingOAuth(
+        {
+          idToken: idToken,
+          provider: "google",
+        },
+        (session: any) => {
+          // Store the session info securely
+          console.log("session after loginUsingOAuth", session);
+          localStorage.setItem("okto_session_info", JSON.stringify(session));
+
+          setUserSWA(session.userSWA);
+        }
+      );
+      console.log("authenticated", user);
+      return JSON.stringify(user);
+    } catch (error) {
+      console.error("Error during loginUsingOAuth", error);
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      sessionClear();
+      signOut();
+      return { result: "logout success" };
+    } catch (error) {
+      return { result: "logout failed" };
+    }
+  }
 
   useEffect(() => {
-    if (session) {
-      const token = (session as any).id_token;
-      console.log(isReady, isLoggedIn, "isReady and isLoggedIn");
-      localStorage.setItem("10dj-authToken", token || "");
-      if (isReady) {
-        authenticate(token, (result, error) => {
-          if (error) {
-            console.error("Error during auth", error);
-          } else {
-            console.log("result from google button", result);
-            console.log("token from google button", token);
-            localStorage.setItem("10dj-authToken", token || "");
-            console.log("session from google button", session);
-            setSessionState(session);
-            handleFetchOrCreateUser(session);
-          }
-        });
-      }
+    if (idToken) {
+      console.log("idToken found in useEffect", idToken);
+      handleAuthenticate();
     }
-  }, [session, isReady, isLoggedIn]);
+  }, [idToken]);
 
   const handleFetchOrCreateUser = async (session: any) => {
     try {
