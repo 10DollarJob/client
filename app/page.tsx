@@ -3,8 +3,7 @@
 import type * as React from "react";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useUser, useSession } from "@clerk/nextjs";
-import { UserButton } from "@clerk/nextjs";
+
 import { Send, Plus, MessageSquare } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +23,9 @@ import remarkGfm from "remark-gfm";
 
 import io, { Socket } from "socket.io-client";
 
+import { LoginButton } from "@/app/components/google-button";
+import { useSession } from "next-auth/react";
+import { useOkto } from "@okto_web3/react-sdk";
 export default function ChatBubble() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
@@ -32,11 +34,13 @@ export default function ChatBubble() {
   const [streamingText, setStreamingText] = useState("");
   const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
 
+  const session = useSession();
+
+  const { isLoggedIn } = useOkto();
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { user } = useUser();
-  const { session } = useSession();
   const router = useRouter();
 
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -93,20 +97,6 @@ export default function ChatBubble() {
     };
   }, [currentStreamId]);
 
-  // Check user on mount
-  useEffect(() => {
-    if (user) {
-      handleGetToken();
-    } else {
-      router.push("/sign-in");
-    }
-  }, [user, router]);
-
-  const handleGetToken = async () => {
-    const token = await session?.getToken();
-    localStorage.setItem("10dj-authToken", token || "");
-  };
-
   // Scroll helper
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
@@ -151,6 +141,7 @@ export default function ChatBubble() {
     const endPoint = `http://localhost:8005/api/v1/chats`;
     const authToken = localStorage.getItem("10dj-authToken");
     try {
+      console.log("getting all chats");
       const response = await fetch(endPoint, {
         method: "GET",
         headers: {
@@ -159,6 +150,7 @@ export default function ChatBubble() {
         },
       });
       const data = await response.json();
+      console.log("data from all chats", data);
       setChats(data);
     } catch (error) {
       console.error("Error fetching all chats:", error);
@@ -294,34 +286,32 @@ export default function ChatBubble() {
         <div className="text-xs text-white/50 mb-2">Recent Chats</div>
         <div className="flex-1 overflow-y-auto space-y-1">
           <TooltipProvider>
-            {chats.map((chat) => (
-              <Tooltip key={chat.id}>
-                <TooltipTrigger asChild>
-                  <div
-                    onClick={() => handleChatClick(chat)}
-                    className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/10"
-                  >
-                    <MessageSquare className="h-4 w-4 shrink-0" />
-                    <span className="truncate text-sm">
-                      {chat.taskTitle || "Untitled Chat"}
-                    </span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  {chat.taskTitle || "Untitled Chat"}
-                </TooltipContent>
-              </Tooltip>
-            ))}
+            {chats.length > 0 &&
+              chats.map((chat) => (
+                <Tooltip key={chat.id}>
+                  <TooltipTrigger asChild>
+                    <div
+                      onClick={() => handleChatClick(chat)}
+                      className="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-white/10"
+                    >
+                      <MessageSquare className="h-4 w-4 shrink-0" />
+                      <span className="truncate text-sm">
+                        {chat.taskTitle || "Untitled Chat"}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    {chat.taskTitle || "Untitled Chat"}
+                  </TooltipContent>
+                </Tooltip>
+              ))}
           </TooltipProvider>
         </div>
 
         {/* User Profile */}
         <div className="mt-4 pt-4 border-t border-white/10">
           <div className="flex items-center gap-3 p-2">
-            <UserButton />
-            <div className="text-sm">
-              {user?.fullName || user?.username || "User"}
-            </div>
+            <LoginButton />
           </div>
         </div>
       </div>
@@ -331,8 +321,10 @@ export default function ChatBubble() {
         {/* Header */}
         <header className="fixed top-0 left-64 right-0 z-10 border-b border-border/40 bg-background p-4 flex items-center justify-between">
           <h1 className="text-lg font-semibold">
-            {chats.find((c) => c.id === localStorage.getItem("10dj-chatId"))
-              ?.taskTitle || "New Chat"}
+            {chats.length > 0
+              ? chats.find((c) => c.id === localStorage.getItem("10dj-chatId"))
+                  ?.taskTitle || "New Chat"
+              : "New Chat"}
           </h1>
           <div>
             <Button
@@ -353,7 +345,7 @@ export default function ChatBubble() {
               ref={containerRef}
               className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth"
             >
-              {messages.length === 0 && !isTyping && (
+              {messages && messages.length === 0 && !isTyping && (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
                   <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
                   <h3 className="text-lg font-medium">No messages yet</h3>
@@ -363,64 +355,66 @@ export default function ChatBubble() {
                 </div>
               )}
 
-              {messages.map((message, index) => {
-                const isCurrentUser = message.role === "user";
-                const showAvatar = shouldShowAvatar(message, index);
-                return (
-                  <div
-                    key={message.id ?? index}
-                    className={`flex ${
-                      isCurrentUser ? "justify-end" : "justify-start"
-                    }`}
-                  >
+              {messages &&
+                messages.length === 0 &&
+                messages.map((message, index) => {
+                  const isCurrentUser = message.role === "user";
+                  const showAvatar = shouldShowAvatar(message, index);
+                  return (
                     <div
-                      className={`flex max-w-[80%] ${
-                        isCurrentUser
-                          ? "flex-row-reverse items-end"
-                          : "flex-row items-start"
-                      } gap-3`}
+                      key={message.id ?? index}
+                      className={`flex ${
+                        isCurrentUser ? "justify-end" : "justify-start"
+                      }`}
                     >
-                      {showAvatar && (
-                        <Avatar className="w-8 h-8">
-                          <AvatarFallback
-                            className={
+                      <div
+                        className={`flex max-w-[80%] ${
+                          isCurrentUser
+                            ? "flex-row-reverse items-end"
+                            : "flex-row items-start"
+                        } gap-3`}
+                      >
+                        {showAvatar && (
+                          <Avatar className="w-8 h-8">
+                            <AvatarFallback
+                              className={
+                                isCurrentUser
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-secondary text-secondary-foreground"
+                              }
+                            >
+                              {isCurrentUser ? "U" : "A"}
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+
+                        <div className="flex flex-col gap-1">
+                          {showAvatar && (
+                            <span
+                              className={`text-xs text-muted-foreground ${
+                                isCurrentUser ? "text-right" : "text-left"
+                              }`}
+                            >
+                              {isCurrentUser ? "You" : "Assistant"}
+                            </span>
+                          )}
+                          <div
+                            className={`rounded-lg px-4 py-2 ${
                               isCurrentUser
                                 ? "bg-primary text-primary-foreground"
                                 : "bg-secondary text-secondary-foreground"
-                            }
-                          >
-                            {isCurrentUser ? "U" : "A"}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-
-                      <div className="flex flex-col gap-1">
-                        {showAvatar && (
-                          <span
-                            className={`text-xs text-muted-foreground ${
-                              isCurrentUser ? "text-right" : "text-left"
                             }`}
                           >
-                            {isCurrentUser ? "You" : "Assistant"}
-                          </span>
-                        )}
-                        <div
-                          className={`rounded-lg px-4 py-2 ${
-                            isCurrentUser
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-secondary text-secondary-foreground"
-                          }`}
-                        >
-                          {/* Render Markdown */}
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {message.content}
-                          </ReactMarkdown>
+                            {/* Render Markdown */}
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {message.content}
+                            </ReactMarkdown>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
 
               {/* Streaming message (only show if there's streaming content) */}
               {isTyping && streamingText && (
@@ -489,7 +483,7 @@ export default function ChatBubble() {
             <Button
               type="submit"
               size="icon"
-              disabled={isTyping || !input.trim()}
+              disabled={isTyping || !input.trim() || !session}
             >
               <Send className="h-4 w-4" />
               <span className="sr-only">Send message</span>
