@@ -62,6 +62,8 @@ export function LoginButton() {
   async function handleAuthenticate() {
     if (!idToken) return { result: false, error: "No Google login" };
 
+    console.log(idToken, "idToken being used");
+
     try {
       const user = await oktoClient.loginUsingOAuth(
         {

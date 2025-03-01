@@ -40,8 +40,8 @@ export function SassyAgentLoader({ agentName }: SassyAgentLoaderProps) {
         flex
         items-center
         space-x-3
-        w-full
-        h-[80px]    /* fixed height for layout */
+        w-[40%]
+        h-fit   
       "
     >
       {/* Loader2 spinner from Lucide/Shadcn */}
