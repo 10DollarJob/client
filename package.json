@@ -24,7 +24,7 @@
     "lucide-react": "^0.476.0",
     "next": "14.2.16",
     "next-auth": "^4.24.11",
-    "@okto_web3/react-sdk": "^0.2.1",
+    "@okto_web3/react-sdk": "^0.4.0",
     "react": "^18",
     "react-dom": "^18",
     "react-markdown": "^10.0.0",

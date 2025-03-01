@@ -1,6 +1,5 @@
 "use client";
 
-import type * as React from "react";
 import { useState, useRef, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
@@ -20,6 +19,8 @@ import {
 // Markdown imports
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import * as React from "react";
+import { LoginButton } from "../components/google-button";
 
 export default function ChatIdPage() {
   const router = useRouter();
@@ -180,7 +181,7 @@ export default function ChatIdPage() {
         {/* Sidebar Header */}
         <div className="flex items-center gap-2 mb-4">
           <MessageSquare className="h-5 w-5" />
-          <span className="font-semibold">Chat App</span>
+          <span className="font-semibold">10 Dollar Job</span>
         </div>
 
         {/* New Chat Button */}
@@ -219,15 +220,11 @@ export default function ChatIdPage() {
           </TooltipProvider>
         </div>
 
-        {/* User Profile
         <div className="mt-4 pt-4 border-t border-white/10">
           <div className="flex items-center gap-3 p-2">
-            <UserButton />
-            <div className="text-sm">
-              {user?.fullName || user?.username || "User"}
-            </div>
+            <LoginButton />
           </div>
-        </div> */}
+        </div>
       </div>
 
       {/* Main Section (right) */}

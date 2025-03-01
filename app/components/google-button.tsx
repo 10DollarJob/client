@@ -2,6 +2,7 @@
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useEffect, useState, useMemo } from "react";
 import { useOkto } from "@okto_web3/react-sdk";
+
 export function LoginButton() {
   const { data: session } = useSession();
   const [sessionState, setSessionState] = useState<any>(null);
@@ -15,16 +16,19 @@ export function LoginButton() {
     return null;
   }, [session]);
 
-  const { loginUsingOAuth, sessionClear } = useOkto();
+  const oktoClient = useOkto();
 
   const [userSWA, setUserSWA] = useState<any>(null);
+
+  // console.log();
 
   async function handleAuthenticate(): Promise<any> {
     if (!idToken) {
       return { result: false, error: "No google login" };
     }
     try {
-      const user = await loginUsingOAuth(
+      console.info("idToken", idToken);
+      const user = await oktoClient.loginUsingOAuth(
         {
           idToken: idToken,
           provider: "google",
@@ -33,11 +37,14 @@ export function LoginButton() {
           // Store the session info securely
           console.log("session after loginUsingOAuth", session);
           localStorage.setItem("okto_session_info", JSON.stringify(session));
-
+          localStorage.setItem(
+            "okto_user_swa",
+            JSON.stringify(session.userSWA)
+          );
           setUserSWA(session.userSWA);
         }
       );
-      console.log("authenticated", user);
+      console.info("authenticated", user);
       return JSON.stringify(user);
     } catch (error) {
       console.error("Error during loginUsingOAuth", error);
@@ -46,7 +53,7 @@ export function LoginButton() {
 
   async function handleLogout() {
     try {
-      sessionClear();
+      oktoClient.sessionClear();
       signOut();
       return { result: "logout success" };
     } catch (error) {

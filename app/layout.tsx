@@ -8,6 +8,8 @@ import AppProvider from "./providers/AppProvider";
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "./api/auth/[...nextauth]/route";
+import React from "react";
+import { OktoProvider } from "@okto_web3/react-sdk";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -32,17 +34,17 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AppProvider session={session}>
-          <ClerkProvider
+          {/* <ClerkProvider
             appearance={{
               variables: {
                 colorPrimary: "#252525",
                 colorBackground: "#121212",
-              },
-              baseTheme: dark,
-            }}
-          >
-            {children}
-          </ClerkProvider>
+                },
+                baseTheme: dark,
+                }}
+                > */}
+          {children}
+          {/* </ClerkProvider> */}
         </AppProvider>
       </body>
     </html>

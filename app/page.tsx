@@ -17,7 +17,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-import { useOkto } from "@okto_web3/react-sdk";
 
 // Markdown imports
 import ReactMarkdown from "react-markdown";
@@ -258,7 +257,7 @@ export default function ChatBubble() {
         {/* Sidebar Header */}
         <div className="flex items-center gap-2 mb-4">
           <MessageSquare className="h-5 w-5" />
-          <span className="font-semibold">Chat App</span>
+          <span className="font-semibold">10 Dollar Job</span>
         </div>
 
         {/* New Chat Button */}
@@ -313,8 +312,8 @@ export default function ChatBubble() {
           <h1 className="text-lg font-semibold">
             {chats.length > 0
               ? chats.find((c) => c.id === localStorage.getItem("10dj-chatId"))
-                  ?.taskTitle || "New Chat"
-              : "New Chat"}
+                  ?.taskTitle || "New Job"
+              : "New Job"}
           </h1>
           <div>
             <Button
