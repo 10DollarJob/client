@@ -1,14 +1,27 @@
 "use client";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useEffect, useState, useMemo } from "react";
-import { useOkto } from "@okto_web3/react-sdk";
+import { getPortfolio, useOkto } from "@okto_web3/react-sdk";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ClipboardCopy } from "lucide-react";
 
 export function LoginButton() {
   const { data: session } = useSession();
   const [sessionState, setSessionState] = useState<any>(null);
+  const [userSWA, setUserSWA] = useState<string | null>(null);
+  const [tokenPortfolio, setTokenPortfolio] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
   //@ts-ignore
   const idToken = useMemo(() => {
-    console.log("session", session);
     if (session) {
       setSessionState(session);
       return (session as any).id_token;
@@ -18,123 +31,204 @@ export function LoginButton() {
 
   const oktoClient = useOkto();
 
-  const [userSWA, setUserSWA] = useState<any>(null);
+  async function handleAuthenticate() {
+    if (!idToken) return { result: false, error: "No Google login" };
 
-  // console.log();
-
-  async function handleAuthenticate(): Promise<any> {
-    if (!idToken) {
-      return { result: false, error: "No google login" };
-    }
     try {
-      console.info("idToken", idToken);
       const user = await oktoClient.loginUsingOAuth(
         {
           idToken: idToken,
           provider: "google",
         },
         (session: any) => {
-          // Store the session info securely
-          console.log("session after loginUsingOAuth", session);
           localStorage.setItem("okto_session_info", JSON.stringify(session));
-          localStorage.setItem(
-            "okto_user_swa",
-            JSON.stringify(session.userSWA)
-          );
+          localStorage.setItem("okto_user_swa", session.userSWA);
           setUserSWA(session.userSWA);
         }
       );
-      console.info("authenticated", user);
       return JSON.stringify(user);
     } catch (error) {
       console.error("Error during loginUsingOAuth", error);
     }
   }
 
+  async function fetchPortfolio() {
+    setIsLoading(true);
+    try {
+      const portfolio = await getPortfolio(oktoClient);
+      if (portfolio) {
+        setTokenPortfolio(portfolio);
+      }
+    } catch (error) {
+      console.error("Error fetching token portfolio:", error);
+    }
+    setIsLoading(false);
+  }
+
   async function handleLogout() {
     try {
       oktoClient.sessionClear();
+      localStorage.removeItem("okto_session_info");
+      localStorage.removeItem("okto_user_swa");
+      localStorage.removeItem("10dj-authToken");
+      localStorage.removeItem("10dj-chatId");
+      localStorage.removeItem("10dj-taskId");
       signOut();
-      return { result: "logout success" };
     } catch (error) {
-      return { result: "logout failed" };
+      console.error("Logout failed");
     }
   }
 
   useEffect(() => {
     if (idToken) {
-      console.log("idToken found in useEffect", idToken);
       handleAuthenticate();
     }
   }, [idToken]);
 
-  const handleFetchOrCreateUser = async (session: any) => {
-    try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/fetch-or-create-user`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.id_token}`,
-          },
-          body: JSON.stringify({
-            email: session.user.email,
-            name: session.user.name,
-            image: session.user.image,
-            type: "user",
-          }),
-        }
-      );
-      const data = await response.json();
-      console.log(data, "data from fetch-or-create-user");
-    } catch (error) {
-      console.error(error, "error from fetch-or-create-user");
+  const handleUserClick = () => {
+    if (!isModalOpen) {
+      fetchPortfolio();
     }
+    setIsModalOpen(!isModalOpen);
   };
 
-  useEffect(() => {
-    if (sessionState) {
-      console.log("sessionState", sessionState.user.image);
-    }
-  }, [sessionState]);
-
-  const handleAuth = () => {
-    try {
-      session ? signOut() : signIn("google");
-    } catch (error) {
-      console.error("Error during auth", error);
-    }
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    alert("Copied to clipboard!");
   };
 
   if (!sessionState) {
-    // Render sign in button with Google logo
     return (
-      <button
-        onClick={handleAuth}
-        className="flex items-center border border-transparent rounded px-4 py-2 transition-colors bg-blue-500 hover:bg-blue-700 text-white"
+      <Button
+        onClick={() => signIn("google")}
+        className="flex items-center bg-black hover:bg-gray-800 text-white px-4 py-2 rounded"
       >
-        <img
-          src="/google-logo.png"
-          alt="Google logo"
-          className="w-6 h-6 mr-2"
-        />
+        <img src="/google-logo.png" alt="Google" className="w-6 h-6 mr-2" />
         Sign in with Google
-      </button>
+      </Button>
     );
   }
 
-  // Render user info and sign out button when signed in
   return (
-    <div className="flex items-center space-x-4" onClick={handleAuth}>
-      <img
-        src={sessionState.user?.image || ""}
-        alt={sessionState.user?.name || ""}
-        className="w-8 h-8 rounded-full"
-      />
-      <span className="text-gray-800 font-medium">
-        {sessionState.user?.name}
-      </span>
-    </div>
+    <>
+      <Button
+        onClick={handleUserClick}
+        className="flex items-center justify-start !py-2 !w-full bg-gray-100 hover:bg-gray-200 rounded border border-gray-300"
+      >
+        <img
+          src={sessionState.user?.image || ""}
+          alt={sessionState.user?.name || ""}
+          className="w-8 h-8 rounded-full mr-2 my-2"
+        />
+        <span className="text-gray-800 font-medium">
+          {sessionState.user?.name}
+        </span>
+      </Button>
+
+      {/* Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Account Information</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* User Address */}
+            <div className="flex items-center justify-between border p-2 rounded-md">
+              {userSWA ? (
+                <>
+                  <span className="text-sm text-gray-600 truncate">
+                    {userSWA}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    onClick={() => copyToClipboard(userSWA)}
+                  >
+                    <ClipboardCopy size={16} />
+                  </Button>
+                </>
+              ) : (
+                <Skeleton className="h-5 w-full rounded-md" />
+              )}
+            </div>
+
+            {/* Aggregated Holdings */}
+            {isLoading ? (
+              <Skeleton className="h-16 w-full rounded-md" />
+            ) : (
+              tokenPortfolio?.aggregated_data && (
+                <div className="p-3 border rounded-md bg-gray-100">
+                  <p className="text-gray-700 font-medium">
+                    Total Holdings:{" "}
+                    {tokenPortfolio.aggregated_data.holdings_count}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>INR:</strong> ₹
+                    {tokenPortfolio.aggregated_data.holdings_price_inr} |
+                    <strong> USDT:</strong> $
+                    {tokenPortfolio.aggregated_data.holdings_price_usdt}
+                  </p>
+                </div>
+              )
+            )}
+
+            {/* Token List */}
+            <div>
+              <h3 className="text-lg font-medium">Token Portfolio</h3>
+              {isLoading ? (
+                <Skeleton className="h-32 w-full rounded-md" />
+              ) : tokenPortfolio?.group_tokens?.length ? (
+                <ul className="space-y-3">
+                  {tokenPortfolio.group_tokens.map(
+                    (tokenGroup: any, index: number) => (
+                      <li
+                        key={index}
+                        className="flex items-center p-2 border rounded-md"
+                      >
+                        <img
+                          src={tokenGroup.token_image}
+                          alt={tokenGroup.name}
+                          className="w-8 h-8 rounded-full mr-3"
+                        />
+                        <div>
+                          <p className="font-medium">
+                            {tokenGroup.name} ({tokenGroup.symbol})
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Balance: {tokenGroup.balance} |
+                            <strong> USDT:</strong> $
+                            {tokenGroup.holdings_price_usdt}
+                          </p>
+                        </div>
+                      </li>
+                    )
+                  )}
+                </ul>
+              ) : (
+                <p className="text-gray-500">No tokens available</p>
+              )}
+            </div>
+
+            {/* Funding Information */}
+            <div className="py-3 border-t border-gray-200">
+              <p className="text-sm text-gray-600">
+                To fund this wallet with a specific token, please transfer to
+                this address:
+              </p>
+              {userSWA ? (
+                <span className="font-medium text-gray-800">{userSWA}</span>
+              ) : (
+                <Skeleton className="h-5 w-3/4 rounded-md" />
+              )}
+            </div>
+            <div className="flex justify-end">
+              <Button variant="destructive" onClick={handleLogout}>
+                Logout
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
