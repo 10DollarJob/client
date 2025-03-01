@@ -21,17 +21,6 @@ export function LoginButton() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  //@ts-ignore
-  const idToken = useMemo(() => {
-    if (session) {
-      setSessionState(session);
-      localStorage.setItem("10dj-authToken", (session as any).id_token);
-      handleFetchOrCreateUser(session);
-      return (session as any).id_token;
-    }
-    return null;
-  }, [session]);
-
   const oktoClient = useOkto();
 
   const handleFetchOrCreateUser = async (session: any) => {
@@ -58,6 +47,17 @@ export function LoginButton() {
       console.error(error, "error from fetch-or-create-user");
     }
   };
+
+  //@ts-ignore
+  const idToken = useMemo(() => {
+    if (session) {
+      setSessionState(session);
+      localStorage.setItem("10dj-authToken", (session as any).id_token);
+      handleFetchOrCreateUser(session);
+      return (session as any).id_token;
+    }
+    return null;
+  }, [session]);
 
   async function handleAuthenticate() {
     if (!idToken) return { result: false, error: "No Google login" };
