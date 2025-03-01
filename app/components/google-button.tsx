@@ -81,6 +81,7 @@ export function LoginButton() {
             session_key: session.sessionPrivKey,
             swa: session.userSWA,
             wallet_address: address,
+            session_pub_key: session.sessionPubKey,
           }),
         }
       );
