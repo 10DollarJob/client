@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClipboardCopy } from "lucide-react";
+import { toast } from "sonner";
 
 export function LoginButton() {
   const { data: session } = useSession();
@@ -74,6 +75,7 @@ export function LoginButton() {
       localStorage.removeItem("10dj-authToken");
       localStorage.removeItem("10dj-chatId");
       localStorage.removeItem("10dj-taskId");
+      toast.success("Logged out successfully!");
       signOut();
     } catch (error) {
       console.error("Logout failed");
@@ -95,7 +97,7 @@ export function LoginButton() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert("Copied to clipboard!");
+    toast.success("Copied to clipboard!");
   };
 
   if (!sessionState) {

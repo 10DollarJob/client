@@ -1,15 +1,14 @@
 // Remove "use client" so this becomes a server component
 import localFont from "next/font/local";
 import "./globals.css";
-import { ClerkProvider } from "@clerk/nextjs";
-import { dark } from "@clerk/themes";
 
 import AppProvider from "./providers/AppProvider";
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "./api/auth/[...nextauth]/route";
 import React from "react";
-import { OktoProvider } from "@okto_web3/react-sdk";
+
+import { Toaster } from "sonner";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -34,17 +33,8 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AppProvider session={session}>
-          {/* <ClerkProvider
-            appearance={{
-              variables: {
-                colorPrimary: "#252525",
-                colorBackground: "#121212",
-                },
-                baseTheme: dark,
-                }}
-                > */}
           {children}
-          {/* </ClerkProvider> */}
+          <Toaster />
         </AppProvider>
       </body>
     </html>
