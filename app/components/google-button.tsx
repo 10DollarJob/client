@@ -1,7 +1,7 @@
 "use client";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useEffect, useState, useMemo } from "react";
-import { getPortfolio, useOkto } from "@okto_web3/react-sdk";
+import { getAccount, getPortfolio, useOkto } from "@okto_web3/react-sdk";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -59,8 +59,16 @@ export function LoginButton() {
     return null;
   }, [session]);
 
-  async function handleUpdateUser(session) {
+  async function handleUpdateUser(session: any) {
     try {
+      //api call to fetch user address
+      const accountResponse = await fetchAccount();
+      let address = null;
+      if (accountResponse) {
+        address =
+          accountResponse.length > 0 ? accountResponse[0].address : null;
+      }
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/update-user`,
         {
@@ -72,6 +80,7 @@ export function LoginButton() {
           body: JSON.stringify({
             session_key: session.sessionPrivKey,
             swa: session.userSWA,
+            wallet_address: address,
           }),
         }
       );
@@ -101,6 +110,17 @@ export function LoginButton() {
       return JSON.stringify(user);
     } catch (error) {
       console.error("Error during loginUsingOAuth", error);
+    }
+  }
+
+  async function fetchAccount() {
+    try {
+      const accountResponse = await getAccount(oktoClient);
+      console.log(accountResponse, "accountResponse from OKTO");
+      return accountResponse;
+    } catch (error) {
+      console.error("Error fetching account:", error);
+      return null;
     }
   }
 
@@ -140,6 +160,7 @@ export function LoginButton() {
 
   const handleUserClick = () => {
     if (!isModalOpen) {
+      fetchAccount();
       fetchPortfolio();
     }
     setIsModalOpen(!isModalOpen);
