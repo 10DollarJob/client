@@ -24,6 +24,7 @@ export function LoginButton() {
   const idToken = useMemo(() => {
     if (session) {
       setSessionState(session);
+      localStorage.setItem("10dj-authToken", (session as any).id_token);
       return (session as any).id_token;
     }
     return null;
