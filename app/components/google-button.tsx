@@ -59,6 +59,29 @@ export function LoginButton() {
     return null;
   }, [session]);
 
+  async function handleUpdateUser(session) {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/update-user`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("10dj-authToken")}`,
+          },
+          body: JSON.stringify({
+            session_key: session.sessionPrivKey,
+            swa: session.userSWA,
+          }),
+        }
+      );
+      const data = await response.json();
+      console.log(data, "data from update-user");
+    } catch (error) {
+      console.error(error, "error from update-user");
+    }
+  }
+
   async function handleAuthenticate() {
     if (!idToken) return { result: false, error: "No Google login" };
 
@@ -68,10 +91,11 @@ export function LoginButton() {
           idToken: idToken,
           provider: "google",
         },
-        (session: any) => {
+        (sess) => {
           localStorage.setItem("okto_session_info", JSON.stringify(session));
-          localStorage.setItem("okto_user_swa", session.userSWA);
-          setUserSWA(session.userSWA);
+          localStorage.setItem("okto_user_swa", sess.userSWA);
+          setUserSWA(sess.userSWA);
+          handleUpdateUser(sess);
         }
       );
       return JSON.stringify(user);
