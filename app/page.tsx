@@ -17,7 +17,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-
 // Markdown imports
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -26,6 +25,7 @@ import io, { Socket } from "socket.io-client";
 
 import { LoginButton } from "@/app/components/google-button";
 import { useSession } from "next-auth/react";
+import { SassyAgentLoader } from "./components/agent-thinker";
 
 export default function ChatBubble() {
   const [messages, setMessages] = useState<any[]>([]);
@@ -34,6 +34,12 @@ export default function ChatBubble() {
   const [chats, setChats] = useState<any[]>([]);
   const [streamingText, setStreamingText] = useState("");
   const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
+
+  const [agentThinking, setAgentThinking] = useState(false);
+  const [currentAgent, setCurrentAgent] = useState<string | null>(null);
+  const [thinkingAgentName, setThinkingAgentName] = useState<string>("");
+  const [progressStep, setProgressStep] = useState<number>(0);
+  const [totalSteps, setTotalSteps] = useState<number>(0);
 
   const session = useSession();
 
@@ -83,6 +89,30 @@ export default function ChatBubble() {
       setCurrentStreamId(null);
       // The final content + media will appear in the "message" event
       // so we rely on that to show the correct final data.
+    });
+
+    // 1) **Listen for “agent-start”**:
+    socketInstance.on("agent-start", (data) => {
+      console.log("Agent is thinking:", data);
+      // data: { agentId, agentName, subtaskIndex, totalSubtasks }
+      setCurrentAgent(data.agentId); // or store data in local state
+      setAgentThinking(true); // or however you want to track it
+
+      // Also optionally set some progress state, e.g.:
+      setProgressStep(data.subtaskIndex);
+      setTotalSteps(data.totalSubtasks);
+
+      // If you want to show which agent is thinking:
+      setThinkingAgentName(data.agentName);
+    });
+
+    // 2) **Listen for “agent-end”**:
+    socketInstance.on("agent-end", (data) => {
+      console.log("Agent finished:", data);
+      // data: { agentId, agentName, subtaskIndex, totalSubtasks }
+      setAgentThinking(false); // agent done
+      // Move the step forward or mark subtask as complete
+      setProgressStep((prev) => prev + 1);
     });
 
     return () => {
@@ -423,6 +453,12 @@ export default function ChatBubble() {
                   );
                 })}
 
+              {agentThinking && (
+                <div className="flex justify-start w-full">
+                  <SassyAgentLoader agentName={thinkingAgentName} />
+                </div>
+              )}
+
               {/* Streaming message (only if there's streaming content) */}
               {isTyping && streamingText && (
                 <div className="flex justify-start">
@@ -476,6 +512,22 @@ export default function ChatBubble() {
             </CardContent>
           </Card>
         </div>
+        {/* <div className="flex items-center gap-2 mb-4">
+          {Array.from({ length: totalSteps }, (_, i) => (
+            <div
+              key={i}
+              className={`w-8 h-8 rounded-full flex items-center justify-center 
+        ${
+          i < progressStep
+            ? "bg-blue-600 text-white"
+            : "bg-gray-200 text-gray-600"
+        }
+      `}
+            >
+              {i + 1}
+            </div>
+          ))}
+        </div> */}
 
         {/* Input area */}
         <div className="border-t bg-background p-4">
