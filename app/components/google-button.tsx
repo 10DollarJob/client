@@ -26,12 +26,38 @@ export function LoginButton() {
     if (session) {
       setSessionState(session);
       localStorage.setItem("10dj-authToken", (session as any).id_token);
+      handleFetchOrCreateUser(session);
       return (session as any).id_token;
     }
     return null;
   }, [session]);
 
   const oktoClient = useOkto();
+
+  const handleFetchOrCreateUser = async (session: any) => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/fetch-or-create-user`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.id_token}`,
+          },
+          body: JSON.stringify({
+            email: session.user.email,
+            name: session.user.name,
+            image: session.user.image,
+            type: "user",
+          }),
+        }
+      );
+      const data = await response.json();
+      console.log(data, "data from fetch-or-create-user");
+    } catch (error) {
+      console.error(error, "error from fetch-or-create-user");
+    }
+  };
 
   async function handleAuthenticate() {
     if (!idToken) return { result: false, error: "No Google login" };
