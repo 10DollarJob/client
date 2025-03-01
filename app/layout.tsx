@@ -5,7 +5,7 @@ import "./globals.css";
 import AppProvider from "./providers/AppProvider";
 
 import { getServerSession } from "next-auth";
-import { authOptions } from "./api/auth/[...nextauth]/route";
+import { authOptions } from "./utils/authOptions";
 import React from "react";
 
 import { Toaster } from "sonner";
